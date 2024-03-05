@@ -9,5 +9,9 @@ Repositório principal de advpl, todo meu aprendizado sobre a linguagem advpl es
 * Relatorios FwmsPrinter
 * Relatorios Excel
 * Relatorios Word
+### Branches
+* Main - Contem documentação do repositorio
+* Principal - Contem o conteudo do repositorio
+
 ### Desenvolvedor Responsavel
 * Kayke Laurindo
