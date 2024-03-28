@@ -3,7 +3,6 @@ Repositório principal de advpl, todo meu aprendizado sobre a linguagem advpl es
 
 ### Lista de conteudos📊
 * MVC
-* Calculadora
 * Funções para rotinas
 * Relatorios Treport
 * Relatorios FwmsPrinter
