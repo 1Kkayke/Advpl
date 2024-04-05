@@ -1,5 +1,5 @@
 #INCLUDE 'TOTVS.CH'
-
+#INCLUDE 'topconn.ch'
 /*/{Protheus.doc} RELCOMP01
     @return  Função de pergunta para caso o usuario deseja gerar relatorio de pedido de compras 
     @author  Kayke Laurindo
@@ -8,9 +8,9 @@
 
 user function RELCOMP01()
 
-    Local oReport := Nil as Object
-    local cAlias := getNextAlias() as Character
-    Local cPergRel := "teste"
+    Local oReport   := Nil                      as Object
+    local cAlias    := getNextAlias()           as Character
+    Local cPergRel  := "RELATORIO PED. COMPRAS" as Character
 
     oReport := xPrintRel(cAlias,cPergRel)
     oReport:PrintDialog()
@@ -19,20 +19,15 @@ Return
 
 /*/{Protheus.doc} xPrintRel
     Imprimir Relatório
-
-    @author  Nome
-    @example Exemplos
-    @param   [Nome_do_Parametro],Tipo_do_Parametro,Descricao_do_Parametro
-    @return  Especifica_o_retorno
-    @table   Tabelas
+    @author  Kayke Laurindo
     @since   01-04-2024
 /*/
 Static Function xPrintRel(cAlias,cPerg)
 
-    local oReport
-    local oSection1
+    local oReport   := Nil as Object
+    local oSection1 := Nil as Object
 
-    oReport   := TReport():New(cPerg,'title',cPerg,{|oReport|ReportPrint(oReport,cAlias)},'')
+    oReport := TReport():New(cPerg,'title',cPerg,{|oReport|ReportPrint(oReport,cAlias)},'')
     oReport:SetLandScape()
     oReport:SetTotalInLine(.F.)
 
@@ -41,43 +36,36 @@ Static Function xPrintRel(cAlias,cPerg)
 
 Return oReport
 
-
 /*/{Protheus.doc} ReportPrint
     Montar query e abrir em tabela temporária
-
-    @author  Nome
-    @example Exemplos
-    @param   [Nome_do_Parametro],Tipo_do_Parametro,Descricao_do_Parametro
-    @return  Especifica_o_retorno
-    @table   Tabelas
+    @author  Kayke Laurindo
     @since   01-04-2024
 /*/
-static function ReportPrint(oReport, cAlias,cOrdem)
-    local oSection1b := oReport:Section(1)
+Static Function ReportPrint(oReport, cAlias,cOrdem)
 
-    oSection1b:BeginQuery()
-    BeginSQL Alias cAlias
-        %noparser%
-        SELECT DISTINCT 
-            SC7.C7_FILIAL FILIAL,
-            SC7.C7_TIPO TIPO,
-            SC7.C7_ITEM ITEM,
-            SC7.C7_PRODUTO PRODUTO,
-            SC7.C7_UM UNIDADE,
-            SC7.C7_QUANT QUANTIDADE,
-            SC7.C7_PRECO PRC_UNITARIO,
-            SC7.C7_TOTAL PRC_TOTAL,
-            SC7.C7_DATPRF DT_ENTREGA,
-            SC7.C7_LOCAL ARMAZEM,
-            SC7.C7_FORNECE FORNECEDOR,
-            SC7.C7_CC CENTRO_CUSTO,
-            SC7.C7_EMISSAO EMISSAO
-            FROM %TABLE:SC7% SC7
-    EndSql
-    oSection1b:EndQuery()
+	Local cQuery := ""
 
-    oReport:SetMeter((cAlias)->(RecCount()))
-
-    oSection1b:Print()
+	cQuery += " SELECT " + CRLF
+	cQuery += "     SC7.C7_FILIAL " + CRLF
+	cQuery += "    ,SC7.C7_TIPO   " + CRLF
+	cQuery += "    ,SC7.C7_ITEM   " + CRLF
+	cQuery += "    ,SC7.C7_PRODUTO" + CRLF
+	cQuery += "    ,SC7.C7_UM     " + CRLF
+	cQuery += "    ,SC7.C7_CODTAB " + CRLF
+	cQuery += "    ,SC7.C7_QUANT  " + CRLF
+	cQuery += "    ,SC7.C7_PRECO  " + CRLF
+	cQuery += "    ,SC7.C7_TOTAL  " + CRLF
+	cQuery += "  FROM " + RetSqlName("SC7") + " SC7 "
+	cQuery := ChangeQuery(cQuery)
+	
+	If Select("QRY") > 0
+		Dbselectarea("QRY")
+		QRY->(DbCloseArea())
+	EndIF
+	
+	TcQuery cQuery New Alias "QRY"
+	
+	oSecCab:BeginQuery()
+	oSecCab:EndQuery({{"QRY"},cQuery})
+	oSecCab:Print()
 Return
-return Nil
