@@ -1,0 +1,189 @@
+#INCLUDE 'TLPP-CORE.TH'
+#INCLUDE 'TLPP-REST.TH'
+
+/*/{Protheus.doc} userAccess
+checa liberação de acesso da empresa
+@type class
+@version 12.1.2210
+@author Kayke Laurindo
+@since 02/02/2024
+/*/
+Class userAccess
+
+	Private Data jData     as Object
+	Private Data jResponse as Object
+
+	Public  Method new() Constructor
+
+	@Get('/generic/userAccess')
+	Public Method userAccess()
+
+EndClass
+
+/*/{Protheus.doc} userAccess::new
+inicia a classe userAccess
+@type method
+@version 12.1.2210
+@author Kayke Laurindo
+@since 02/02/2024
+@return variant, sem retorno
+/*/
+
+Method new() Class userAccess
+
+	Self:jData     := JsonObject():New()
+	Self:jResponse := JsonObject():New()
+
+Return
+
+/*/{Protheus.doc} userAccess::userAccess
+checa liberação de acesso da empresa
+@type method
+@version 12.1.2210
+@author Kayke Laurindo
+@since 02/02/2024
+@return variant, sem retorno
+
+Regra:
+	1 - Empresa liberda
+	2 - Data expirada ou empresa inativa
+	3 - CNPJ não encontrado
+	4 - CNPJ não informado
+/*/
+Method userAccess() Class userAccess
+	Local nLinha := 0
+
+	Self:jData[ 'authentication' ] := {}
+	Self:jData[ 'user' ]           := {}
+	Self:jData[ 'access' ]         := {}
+
+	DbSelectArea( "ZFM" )
+	ZFM->( DbSetOrder( 1 ) )
+
+	If ZFM->( DbSeek(xFilial("ZFM") + __cUserId) ) .AND. !(__cUserId $ '000000')
+
+		If ZFM->ZFM_BLOQ == '2'
+
+			cResult  := .T.
+			cCode    := 200
+
+			jEmp := JsonObject():New()
+			jEmp[ 'status' ]          := 1
+			jEmp[ 'valida' ]          := "SIM"
+			jEmp[ 'message' ]         := "Usuário liberado"
+			jEmp[ 'detailedMessage' ] := ""
+			aadd(Self:jData[ 'authentication' ], jEmp)
+
+			jUser := JsonObject():New()
+			jUser[ 'code' ]         := ZFM->ZFM_USER
+			jUser[ 'username' ]     := UsrRetName(ZFM->ZFM_USER)
+			jUser[ 'userfullname' ] := UsrFullName(ZFM->ZFM_USER)
+			aadd(Self:jData[ 'user' ], jUser)
+
+			aAccess := queryAccess(ZFM->ZFM_USER)
+
+			For nLinha := 1 To Len(aAccess)
+				jAccess := JsonObject():New()
+				jAccess[ 'code' ] 	   := aAccess[nLinha][1]
+				jAccess[ 'descricao' ] := aAccess[nLinha][2]
+				jAccess[ 'acesso' ]    := aAccess[nLinha][3]
+				aadd(Self:jData[ 'access' ], jAccess)
+			Next
+			
+		Else
+
+			cResult  := .F.
+			cCode    := 404
+
+			jEmp := JsonObject():New()
+			jEmp[ 'status' ]          := 2
+			jEmp[ 'valida' ]          := "NAO"
+			jEmp[ 'message' ]         := "Usuário bloqueado para uso"
+			jEmp[ 'detailedMessage' ] := "Verifique os acessos no cadastro do usuario"
+			aadd(Self:jData[ 'authentication' ], jEmp)
+
+			jUser := JsonObject():New()
+			jUser[ 'code' ]         := ZFM->ZFM_USER
+			jUser[ 'username' ]     := UsrRetName(ZFM->ZFM_USER)
+			jUser[ 'userfullname' ] := UsrFullName(ZFM->ZFM_USER)
+			aadd(Self:jData[ 'user' ], jUser)
+
+			jAccess := JsonObject():New()
+			jAccess[ 'code' ] 	   := ''
+			jAccess[ 'descricao' ] := ''
+			jAccess[ 'acesso' ]    := ''
+			aadd(Self:jData[ 'access' ], jAccess)
+
+		EndIf
+
+	Else
+
+		cResult  := .F.
+		cCode    := 404
+
+		jEmp := JsonObject():New()
+		jEmp[ 'status' ]          := 3
+		jEmp[ 'valida' ]          := "NAO"
+		jEmp[ 'message' ]         := "Usuario não cadastrado para uso do aplicativo"
+		jEmp[ 'detailedMessage' ] := "Verique o cadastro com o administrador sistema Protheus"
+		aadd(Self:jData[ 'authentication' ], jEmp)
+
+		jUser := JsonObject():New()
+		jUser[ 'code' ]         := ''
+		jUser[ 'username' ]     := ''
+		jUser[ 'userfullname' ] := ''
+		aadd(Self:jData[ 'user' ], jUser)
+
+		jAccess := JsonObject():New()
+		jAccess[ 'code' ] 	   := ''
+		jAccess[ 'descricao' ] := ''
+		jAccess[ 'acesso' ]    := ''
+		aadd(Self:jData[ 'access' ], jAccess)
+
+	EndIf
+
+	Self:jResponse[ 'result' ]   := cResult
+	Self:jResponse[ 'code' ]     := cCode
+	Self:jResponse[ 'response' ] := Self:jData
+
+	oRest:setStatusCode(cCode)
+	oRest:setResponse(Self:jResponse)
+	oRest:setKeyHeaderResponse('Content-Type','application/json')
+
+Return
+
+/*/{Protheus.doc} '
+Seleciona registros entre o periodo informado
+@author Kayke Laurindo
+@since 31/10/2023
+/*/
+Static Function queryAccess(cUser)
+    Local _aAccess    := {}
+    Local _cQuery     := ""
+    Local cFinalQuery := ""
+    Local oStatement  := Nil
+	Local _cALias 	  := GetNextAlias()
+
+    oStatement := FWPreparedStatement():New()
+
+    _cQuery:= " SELECT ZFN_CODACE, ZFN_DESCRI, ZFN_ACESSO "
+    _cQuery+= " FROM "+RETSQLNAME("ZFN")+" ZFN "
+    _cQuery+= " WHERE D_E_L_E_T_ = ' ' AND ZFN_USER = ? "
+
+	oStatement:SetQuery(_cQuery)
+    oStatement:SetString(1, cUser)
+
+	cFinalQuery := oStatement:GetFixQuery()
+	
+    IF SELECT("_cALias") > 0
+        (_cALias)->( DbCloseArea())
+    ENDIF
+
+	_cALias  := MPSysOpenQuery(cFinalQuery, _cALias)
+
+    while !(_cAlias)->(Eof())
+		Aadd(_aAccess , { (_cAlias)->ZFN_CODACE, Alltrim((_cAlias)->ZFN_DESCRI), If((_cAlias)->ZFN_ACESSO == "T",.T.,.F.) })
+		(_cAlias)->(dbSkip())
+	Enddo
+
+Return(_aAccess)
