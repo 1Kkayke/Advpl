@@ -9,11 +9,9 @@
 
 # Clients 🌎
 * FwAdapterVBase2
-* Methods
 
 # Products ♨️
 * FwAdapterVBase2
-* Methods
 
 # PurchaseOrder 🛒
 * FwAdapterVBase2
