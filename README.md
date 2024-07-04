@@ -3,19 +3,19 @@
 
 ### Lista de conteudos📊
 
-# Authentication
+# Authentication 🔒
 * Company
 * Users
 
-# Clients
+# Clients 🌎
 * FwAdapterVBase2
 * Methods
 
-# Products
+# Products ♨️
 * FwAdapterVBase2
 * Methods
 
-# PurchaseOrder
+# PurchaseOrder 🛒
 * FwAdapterVBase2
 
 ### Desenvolvedor Responsavel
