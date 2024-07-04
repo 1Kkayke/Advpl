@@ -1,0 +1,49 @@
+#INCLUDE 'TOTVS.CH'
+#INCLUDE 'TLPP-CORE.TH'
+#INCLUDE 'TLPP-REST.TH'
+
+
+/*/{Protheus.doc} purchaseOrder
+retorna todos os pedidos de compras
+@type method
+@version 12.1.27
+@author Kayke Laurindo
+@since 07/02/2024
+/*/
+
+@GET('/shopping/pucharseorder')
+User function searchOrders()
+    Local jResponse := Nil
+	Local oService  := Nil
+
+    oService := AdapterOrder():New()
+    jResponse := oService:GetPedidos(oRest:getPathParamsRequest(),oRest:getQueryRequest())
+
+	oRest:setStatusCode(jResponse['code'])
+	oRest:setResponse(jResponse:ToJson())
+    oRest:setKeyHeaderResponse("Content-Type","application/json")
+	oRest:setKeyHeaderResponse('accept-encoding','gzip,deflate')
+	oRest:setKeyHeaderResponse('accept','/')
+	oRest:setKeyHeaderResponse('User-Agent','Thunder Client (https://www.thunderclient.com)')
+Return
+
+/*/{Protheus.doc} purchaseOrder
+retorna todos os pedidos de compras
+@type method
+@version 12.1.27
+@author Kayke Laurindo
+@since 07/02/2024
+/*/
+
+@GET('/shopping/pucharseorder/:c7_num')
+User Function itensOrders()
+    Local jResponse := Nil
+	Local oService  := Nil
+
+    oService := AdapterOrder():New()
+    jResponse := oService:GetItensPedido(oRest:getPathParamsRequest(),oRest:getQueryRequest())
+
+	oRest:setStatusCode(jResponse['code'])
+	oRest:setResponse(jResponse:ToJson())
+    oRest:setKeyHeaderResponse("Content-Type","application/json")
+Return

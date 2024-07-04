@@ -1,0 +1,156 @@
+#INCLUDE 'TLPP-CORE.TH'
+
+/*/{Protheus.doc} AdapterOrder
+Extensao da classe FWAdapterBaseV2
+@type class
+@version 12.23.10
+@author Kayke Laurindo
+@since 07/02/2024
+/*/
+Class AdapterOrder FROM FWAdapterBaseV2
+    Public Method New() Constructor
+    Public Method GetPedidos()
+    Public Method GetItensPedido()
+EndClass
+
+/*/{Protheus.doc} new
+contrutor da classe
+@type method
+@version 12.23.10
+@author Kayke Laurindo
+@since 07/02/2024
+@return object, instancia da classe
+/*/
+Method New() Class AdapterOrder
+    _Super:New("GET")
+Return self
+
+/*/{Protheus.doc} GetPedidos
+Recupera os pedidos de compras cadastrados no sistema
+@type method
+@version 12.23.10
+@author Kayke Laurindo
+@since 07/02/2024
+@param queryRequest, character, table a ser processado
+@param paramRequest, json, query da url
+@return Json, response da requisicao
+/*/
+Method GetPedidos(paramRequest As Json, queryRequest As Json) Class AdapterOrder
+
+    Local response := JsonObject():New() as Json
+	Local filter := {}
+
+	// indica qual página devemos retornar
+	If !(Empty(queryRequest['page']))
+		self:setPage(Val(queryRequest['page']))
+	EndIf
+
+	// indica o tamanho da página
+	If !(Empty(queryRequest['pagesize']))
+		self:setPageSize(Val(queryRequest['pagesize']))
+	EndIf
+
+	// indica a ordem definida por querystring
+	If !(Empty(queryRequest['order']))
+		self:setOrderQuery(queryRequest['order'])
+	EndIf
+
+    // indica o filtro querystring recebido (pode se utilizar um filtro oData)
+	If !(Empty(queryRequest['filter']))
+		AAdd(filter, {"FILTER", queryRequest['filter']})
+		self:SetUrlFilter(filter)
+	EndIf
+
+    u_mapFieldsPurchaseOrder(self,paramRequest)
+
+	// Informa a Query a ser utilizada pela API
+	self:SetQuery(u_queryPurchaseOrder(queryRequest))
+
+	// configura o filtro de query padrão
+	self:SetWhere(u_wherePurchaseOrder(queryRequest))
+
+	// Informa a ordenação a ser Utilizada pela Query
+	self:SetOrder(u_orderPurchaseOrder(queryRequest))
+
+    if self:Execute(.T.)
+        self:FillGetResponse()
+    Endif
+
+    If self:lOk
+        response['result']   := .T.
+		response['code']     := ::GetCode()
+		response['response'] := JsonObject():New()
+		response['response']:FromJson(EncodeUTF8(FwNoAccent(::getJSONResponse())))
+    Else
+        response['result']  := .F.
+        response['code']    := ::GetCode()
+        response['message'] := EncodeUTF8(FwNoAccent(self:GetMessage()))
+    EndIf
+
+    self:DeActivate()
+
+Return response
+
+/*/{Protheus.doc} GetItensPedido
+Recupera os pedidos de compras cadastrados no sistema
+@type method
+@version 12.23.10
+@author Kayke Laurindo
+@since 07/02/2024
+@param queryRequest, character, table a ser processado
+@param paramRequest, json, query da url
+@return Json, response da requisicao
+/*/
+Method GetItensPedido(paramRequest as Json, queryRequest as Json) Class AdapterOrder
+
+    Local response := JsonObject():New() as Json
+    Local cPedido := paramRequest['c7_num']
+
+    If Empty(cPedido)
+		response['result']  := .F.
+		response['code']    := 401
+		response['message'] := "Pedido de compra não informado"
+		Return response
+	EndIf
+
+	// indica qual página devemos retornar
+	If !(Empty(queryRequest['page']))
+		self:setPage(Val(queryRequest['page']))
+	EndIf
+
+	// indica o tamanho da página
+	If !(Empty(queryRequest['pagesize']))
+		self:setPageSize(Val(queryRequest['pagesize']))
+	EndIf
+
+	// indica a ordem definida por querystring
+	If !(Empty(queryRequest['order']))
+		self:setOrderQuery(queryRequest['order'])
+	EndIf
+
+    U_mapFieldsPurchaseOrder(self,paramRequest)
+
+    self:SetQuery(U_queryItensPurchaseOrder(queryRequest),2)
+
+    self:SetWhere(U_whereItensPurchaseOrder(paramRequest))
+
+    self:SetOrder("C7_ITEM")
+
+    if self:Execute(.F.)
+        self:FillGetResponse()
+    Endif
+
+    If self:lOk
+        response['result']   := .T.
+        response['code']     := self:GetCode()
+        response['response'] := JsonObject():New()
+        response['response']:FromJson(EncodeUTF8(FwNoAccent(self:getJSONResponse())))
+    Else
+        response['result']  := .F.
+        response['code']    := self:GetCode()
+        response['message'] := EncodeUTF8(FwNoAccent(self:GetMessage()))
+    EndIf
+
+    self:DeActivate()
+
+Return response
