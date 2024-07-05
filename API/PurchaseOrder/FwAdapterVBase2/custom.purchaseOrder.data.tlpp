@@ -1,0 +1,143 @@
+#INCLUDE 'TLPP-CORE.TH'
+#Include "RWMAKE.CH"
+
+#DEFINE CAMPOS_ITEMPED "C7_ITEM,C7_PRODUTO,C7_DESCRI,C7_QUANT,C7_PRECO,C7_TOTAL"
+#DEFINE CAMPOS_PEDIDOS "C7_FILIAL,C7_NUM,C7_NUMSC,C7_FORNECE,A2_NOME,C7_LOJA,C7_EMISSAO,C7_TOTAL,C7_CONAPRO"
+
+/*/{Protheus.doc} DataOrder::queryPurchaseOrder
+Ordena os campos para o adapter
+@type method
+@version 12.23.10
+@author Kayke Laurindo
+@since 01/02/2024
+@param oSelf, object, param_Objcet
+@return variant, return
+/*/
+Function U_queryPurchaseOrder()
+	Local query := "" as Character
+
+	query := " SELECT #QueryFields# "
+	query += " FROM ( "
+	query += " SELECT C7_FILIAL,C7_NUM,C7_NUMSC,C7_FORNECE,A2_NOME,C7_LOJA,C7_EMISSAO,SUM(C7_TOTAL) C7_TOTAL,C7_CONAPRO "
+	query += " FROM " + RetSQLName("SC7") + " SC7 "
+	query += " INNER JOIN " + RetSQLName("SA2") + " SA2 "
+	query += " ON C7_FORNECE = A2_COD AND C7_LOJA = A2_LOJA AND SA2.D_E_L_E_T_  = '' "
+	query += " WHERE #QueryWhere# "
+	query += " GROUP BY C7_FILIAL,C7_NUM,C7_NUMSC,C7_FORNECE,A2_NOME,C7_LOJA,C7_EMISSAO,C7_CONAPRO "
+	query += ") AS TBL "
+Return query
+
+/*/{Protheus.doc} U_wherePurchaseOrder
+Filtro para os campos para o adapter
+@type method
+@version 12.23.10
+@author Kayke Laurindo
+@since 01/02/2024
+@param oSelf, object, param_Objcet
+@return variant, return
+/*/
+Function U_wherePurchaseOrder(queryRequest)
+	Local cEmissaoAte := U_ISNULL(queryRequest['emissaoate'],"")
+	Local cEmissaoDe  := U_ISNULL(queryRequest['emissaode'],"")
+	Local cUser       := U_ISNULL(queryRequest['userid'],"")
+	Local cLiberado  := U_ISNULL(queryRequest['liberado'],"")
+	Local queryWhere  := "" as Character
+
+	queryWhere := " SC7.D_E_L_E_T_  = '' AND C7_FILIAL = '"+xFilial("SC7")+"'"
+
+	If !Empty(cUser)
+		queryWhere += " AND CR_USER = '" + cUser + "' "
+	EndIf
+
+	if (!Empty(cEmissaoDe)) .AND. (!Empty(cEmissaoAte))
+		queryWhere += " AND SC7.C7_EMISSAO BETWEEN '"+cEmissaoDe+"' AND '"+cEmissaoAte+"' "
+	elseif (!Empty(cEmissaoDe))
+		queryWhere += " AND SC7.C7_EMISSAO >= '"+cEmissaoDe+"' "
+	elseif (!Empty(cEmissaoAte))
+		queryWhere += " AND SC7.C7_EMISSAO <= '"+cEmissaoAte+"' "
+	endif
+
+	if !empty(cLiberado)
+		queryWhere += " AND C7_CONAPRO = 'L' "
+	else
+		queryWhere += " AND C7_CONAPRO = 'B'"
+	endif	
+
+Return queryWhere
+
+/*/{Protheus.doc} U_orderPurchaseOrder
+Como será ordenados os pedidos de compras
+@type function
+@version 12.23.10
+@author Kayke Laurindo
+@since 22/02/2024
+@param queryRequest, variant, param
+@return variant, return
+/*/
+Function U_orderPurchaseOrder(queryRequest)
+	Local queryOrder as Character
+	Default queryRequest['order'] := ""
+
+	queryOrder := IIf(Empty(queryRequest['order']),"ORDER BY C7_EMISSAO DESC,C7_FILIAL,C7_NUM",Upper(queryRequest['order']))
+Return queryOrder
+
+/*/{Protheus.doc} U_queryItensPurchaseOrder
+Montagem da Query dos Itens do pedido
+@type function
+@version 12.23.10
+@author Kayke Laurindo
+@since 22/02/2024
+@return variant, return
+/*/
+Function U_queryItensPurchaseOrder()
+	Local cQuery := "" as Character
+
+	cQuery += " SELECT #QueryFields#"
+	cQuery += " FROM " + RetSQLName("SC7") + " SC7"
+	cQuery += " WHERE #QueryWhere#"
+Return cQuery
+
+/*/{Protheus.doc} U_whereItensPurchaseOrder
+Montagem do Where dos Itens
+@type function
+@version 12.23.10
+@author Kayke Laurindo
+@since 22/02/2024
+@param queryRequest, variant, param
+@return variant, return
+/*/
+Function U_whereItensPurchaseOrder(queryRequest)
+	Local cCodeNum    := U_ISNULL(queryRequest['c7_num'],"")
+	Local queryWhere      := "" as Character
+
+	queryWhere := "SC7.D_E_L_E_T_  = '' "
+	queryWhere += "AND C7_NUM = '"+cCodeNum+"' AND C7_FILIAL = '"+xFilial("SC7")+"' "
+Return queryWhere
+
+/*/{Protheus.doc} U_MapFieldsPurchaseOrder
+Mapiamento dos campos e de como ai retornar as coisa
+@type method
+@version 12.23.10
+@author Kayke Laurindo
+@since 01/02/2024
+@param oSelf, object, param_Objcet
+@return variant, return
+/*/
+Function U_mapFieldsPurchaseOrder(oSelf as Object, paramRequest as Json)
+	Local nX          := 0
+	Local cCodeNum := U_ISNULL(paramRequest['c7_num'],"")
+
+	If Empty(cCodeNum)
+		aCampos := StrToKarr2(CAMPOS_PEDIDOS,",")
+	Else
+		aCampos := StrToKarr2(CAMPOS_ITEMPED,",")
+	EndIf
+
+	For nX := 1 to Len(aCampos)
+		if GetSx3Cache(aCampos[nX] ,"X3_TIPO") == "D"
+			oSelf:AddMapFields(aCampos[nX], aCampos[nX],.T.,.T.,{aCampos[nX], "C", GetSx3Cache(aCampos[nX] ,"X3_TAMANHO"), GetSx3Cache(aCampos[nX] ,"X3_DECIMAL")})
+		else
+			oSelf:AddMapFields(aCampos[nX], aCampos[nX],.T.,.T.,{aCampos[nX], GetSx3Cache(aCampos[nX] ,"X3_TIPO"), GetSx3Cache(aCampos[nX] ,"X3_TAMANHO"), GetSx3Cache(aCampos[nX] ,"X3_DECIMAL")})
+		endif
+	Next
+Return

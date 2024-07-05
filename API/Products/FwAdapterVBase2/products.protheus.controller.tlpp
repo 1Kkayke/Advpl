@@ -1,0 +1,23 @@
+#INCLUDE 'TOTVS.CH'
+#INCLUDE 'TLPP-CORE.TH'
+#INCLUDE 'TLPP-REST.TH'
+
+/*/{Protheus.doc} productRanking
+metodo HTTP GET responsável por buscar os Tops Produtos
+@type function
+@version 12.1.2210
+@author Kayke Laurindo
+@since 18/01/2024
+/*/
+@GET("/shopping/rankingproduct")
+User Function productRanking()
+	Local jResponse := Nil
+	Local oService  := Nil
+
+	oService := AdapterRanking():New()
+	jResponse := oService:GetRanking(oRest:getPathParamsRequest(),oRest:getQueryRequest())
+
+	oRest:setStatusCode(jResponse['code'])
+	oRest:setResponse(jResponse:ToJson())
+	oRest:setKeyHeaderResponse("Content-Type","application/json")
+Return

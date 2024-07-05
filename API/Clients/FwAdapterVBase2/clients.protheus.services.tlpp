@@ -1,0 +1,94 @@
+#INCLUDE 'TOTVS.CH'
+#INCLUDE 'TLPP-CORE.TH'
+#INCLUDE 'TLPP-REST.TH'
+
+/*/{Protheus.doc} AdapterRanking
+Extensao da classe FWAdapterBaseV2
+@type class
+@version 12.1.27
+@author Kayke Laurindo
+@since 18/01/2024
+/*/
+Class AdapterRanking FROM FWAdapterBaseV2
+	Public Method new()
+	Public Method GetRanking()
+EndClass
+
+/*/{Protheus.doc} new
+contrutor da classe
+@type method
+@version 12.1.27
+@author Kayke Laurindo
+@since 18/01/2024
+@return object, instancia da classe
+/*/
+Method new() Class AdapterRanking
+	_Super:new('GET')
+Return self
+
+/*/{Protheus.doc} GetRanking
+Recupera os clientes cadastrados no sistema
+@type method
+@version 12.1.27
+@author Kayke Laurindo
+@since 18/01/2024
+@param paramRequest, character, table a ser processado
+@param queryRequest, json, query da url
+@return Json, response da requisicao
+/*/
+Method GetRanking(paramRequest As Json, queryRequest As Json) Class AdapterRanking
+	Local response    as Json
+
+	// indica qual página devemos retornar
+	If !(Empty(queryRequest['page']))
+		::setPage(Val(queryRequest['page']))
+	EndIf
+
+	// indica o tamanho da página
+	If !(Empty(queryRequest['pagesize']))
+		::setPageSize(Val(queryRequest['pagesize']))
+	EndIf
+
+	// indica a ordem definida por querystring
+	If !(Empty(queryRequest['order']))
+		::setOrderQuery(queryRequest['order'])
+	EndIf
+
+	u_apiRankingMapFields(Self)
+
+	// Informa a Query a ser utilizada pela API
+	If !(Empty(queryRequest['ranking']))
+		::SetQuery(u_apiRankingQuery(queryRequest['ranking']))
+	Else
+		::SetQuery(u_apiRankingQuery())
+	EndIf
+
+	// configura o filtro de query padrão
+	::SetWhere(u_apiRankingWhere(queryRequest))
+
+	// Informa a ordenação a ser Utilizada pela Query
+	::SetOrder(u_apiRankingOrder(queryRequest['order']))
+
+	//Executa a consulta, se retornar .T. tudo ocorreu conforme esperado
+	If ::Execute(.T.)
+		// Gera o arquivo Json com o retorno da Query
+		::FillGetResponse()
+	EndIf
+
+	response := JsonObject():New()
+
+	If ::lOk
+		response['result']   := .T.
+		response['code']     := ::GetCode()
+		response['response'] := JsonObject():New()
+		response['response']:FromJson(EncodeUTF8(FwNoAccent(::getJSONResponse())))
+	Else
+		response['result']  := .F.
+		response['code']    := ::GetCode()
+		response['message'] := EncodeUTF8(FwNoAccent(::GetMessage()))
+	EndIf
+
+	//faz a desalocação de objetos e arrays utilizados
+	::DeActivate()
+
+Return response

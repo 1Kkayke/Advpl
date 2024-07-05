@@ -1,0 +1,124 @@
+#INCLUDE 'TOTVS.CH'
+#INCLUDE 'TLPP-CORE.TH'
+#INCLUDE 'TLPP-REST.TH'
+/*/{Protheus.doc} u_apiRankingFields
+//Campos padroes do adapter caso nao tenha o "allfields=true" no queryparams
+@type function
+@version 12.1.33
+@author Kayke Laurindo
+@since 18/01/2024
+@return character, campos da view processada
+/*/
+Function u_apiRankingFields() as Character
+	Local fieldsDefault as Character
+
+	fieldsDefault := "D2_FILIAL,D2_CLIENTE,A1_NOME,D2_TOTAL,D2_QUANT"
+
+Return fieldsDefault
+
+/*/{Protheus.doc} u_apiRankingQuery
+//Prepara a consulta para o adapter
+@type function
+@version 12.1.33
+@author Kayke Laurindo
+@since 18/01/2024
+@return character, query do adapter
+/*/
+Function u_apiRankingQuery(cRanking as Character) as Character
+	Local query as Character
+	Default cRanking := '0'
+
+	If VAL(cRanking) > 0
+		query := " SELECT TOP "+cRanking+ "#QueryFields#"
+	else
+		query := " SELECT #QueryFields#"
+	endif
+
+	query += " FROM (
+	query += " SELECT D2_FILIAL, D2_CLIENTE,A1_NOME, (SUM(D2_TOTAL)-SUM(D2_VALDEV))D2_TOTAL, (SUM(D2_QUANT)-SUM(D2_QTDEDEV))D2_QUANT "
+	query += " FROM " + RetSqlName('SD2') + " SD2"
+	query += " INNER JOIN " + RetSqlName('SA1') + " SA1 ON SA1.D_E_L_E_T_ <> '*' AND A1_COD = D2_CLIENTE AND A1_LOJA = D2_LOJA"
+	query += " WHERE #QueryWhere#"
+	query += " GROUP BY D2_FILIAL,D2_CLIENTE,A1_NOME"
+	query += ") AS TBL"
+
+Return query
+
+/*/{Protheus.doc} u_apiRankingOrder
+Ordena os campos para o adapter, caso nao tenha um customizado
+@type function
+@version 12.1.3
+@author Kayke Laurindo
+@since 18/01/2024
+@param table, character, table a ser processado
+@param cOrder, character, ordenação a ser processada
+@return character, ordem do adapter
+/*/
+Function u_apiRankingOrder(table as Character, cOrder as Character) as Character
+	Local queryOrder as Character
+	Default cOrder := ""
+
+	queryOrder := IIf(Empty(cOrder)," D2_TOTAL DESC",Upper(cOrder))
+
+Return queryOrder
+
+/*/{Protheus.doc} u_apiRankingWhere
+Filtro para os campos para o adapter, caso nao tenha um customizado
+@type function
+@version 12.1.33
+@author Kayke Laurindo
+@since 18/01/2024
+@param queryBranches, character, where a ser processado
+@return character, where do adapter
+/*/
+Function u_apiRankingWhere( queryRequest As Json) as Character
+	Local queryWhere as Character
+	Local cFilialDe   := U_ISNULL(queryRequest[ 'filialde' ],"")
+	Local cFilialAte  := U_ISNULL(queryRequest[ 'filialate' ],"")
+	Local cEmissaoDe  := U_ISNULL(queryRequest[ 'emissaode' ],"")
+	Local cEmissaoAte := U_ISNULL(queryRequest[ 'emissaoate' ],"")
+	Local cCodigoDe   := U_ISNULL(queryRequest[ 'codigode' ],"")
+	Local cCodigoAte  := U_ISNULL(queryRequest[ 'codigoate' ],"")
+	// Local cDataDe 	  := U_ISNULL(queryRequest[ 'dataDe'],"")
+	// local cDataAte    := U_ISNULL(queryRequest[ 'dataAte'],"")
+
+	queryWhere := "SD2.D_E_L_E_T_ = '' AND D2_TIPO = 'N' AND D2_TES >= '501' "
+
+	If (!Empty(cFilialDe)) .OR. (!Empty(cFilialAte))
+		queryWhere += "AND D2_FILIAL BETWEEN '"+cFilialDe+"' AND '"+cFilialAte+"' "
+	EndIf
+
+	If (!Empty(cEmissaoDe)) .OR. (!Empty(cEmissaoAte))
+		queryWhere += "AND D2_EMISSAO BETWEEN '"+cEmissaoDe+"' AND '"+cEmissaoAte+"' "
+	EndIf
+
+	If (!Empty(cCodigoDe)) .OR. (!Empty(cCodigoAte))
+		queryWhere += "AND D2_COD BETWEEN '"+cCodigoDe+"' AND '"+cCodigoAte+"' "
+	EndIf
+
+	// if (!empty(cDataDe)) .OR. (!Empty(cDataDe))
+		
+	// endif
+
+Return queryWhere
+
+/*/{Protheus.doc} u_apiRankingMapFields
+Prepara os campos para o adapter
+@type function
+@version 12.1.33
+@author Kayke Laurindo
+@since 18/01/2024
+@param oSelf, object, proprio objeto
+@param fields, array, campos a ser tratados
+@param allFields, logical, se manda todos os campos no adapter
+/*/
+Function u_apiRankingMapFields(oSelf as Object)
+	Local nI     := 0
+	Local fields := {}
+
+	fields := StrToKarr2(u_apiRankingFields(),",")
+	For nI := 1 To Len(fields)
+		oSelf:AddMapFields(fields[nI], fields[nI],.T.,.T.,{fields[nI], GetSx3Cache(fields[nI] ,"X3_TIPO"), GetSx3Cache(fields[nI] ,"X3_TAMANHO"), GetSx3Cache(fields[nI] ,"X3_DECIMAL")})
+	Next
+
+Return

@@ -1,0 +1,131 @@
+#INCLUDE 'TLPP-CORE.TH'
+#INCLUDE 'TLPP-REST.TH'
+
+/*/{Protheus.doc} viewLibEmpresa
+checa liberação de acesso da empresa
+@type class
+@version 12.1.2210
+@author Kayke Laurindo
+@since 02/02/2024
+/*/
+Class libEmpresa
+
+	Private Data jData     as Object
+	Private Data jResponse as Object
+
+	Public  Method new() Constructor
+
+	@Get('/generic/libempresa')
+	Public Method viewLibEmpresa()
+
+EndClass
+
+/*/{Protheus.doc} viewLibEmpresa::new
+inicia a classe LibEmpresa
+@type method
+@version 12.1.2210
+@author Kayke Laurindo
+@since 02/02/2024
+@return variant, sem retorno
+/*/
+
+Method new() Class libEmpresa
+
+	Self:jData     := JsonObject():New()
+	Self:jResponse := JsonObject():New()
+
+Return
+
+/*/{Protheus.doc} libEmpresa::libEmpresa
+checa liberação de acesso da empresa
+@type method
+@version 12.1.2210
+@author Kayke Laurindo
+@since 02/02/2024
+@return variant, sem retorno
+
+Regra:
+	1 - Empresa liberda
+	2 - Data expirada ou empresa inativa
+	3 - CNPJ não encontrado
+	4 - CNPJ não informado
+/*/
+Method viewLibEmpresa() Class libEmpresa
+
+	Local queryRequest := oRest:getQueryRequest()
+
+	cCNPJ := queryRequest['cnpj']
+	Self:jData['items'] := {}
+
+	If !Empty(cCNPJ) .AND. Len(cCNPJ) == 14
+
+		If Len(cCNPJ) > 14
+			cCnpj := PadR( AllTrim( StrTran( StrTran( StrTran( ::pCnpj , "." , "" ) , "/" , "" ) , "-" , "" ) ) , TamSX3( "ZFL_CNPJ" )[ 1 ] )
+		EndIf
+
+		DbSelectArea( "ZFL" )
+		ZFL->( DbSetOrder( 1 ) )
+
+		If( ZFL->( DbSeek( xFilial("ZFN") + cCnpj ) ) )
+
+			If( Date() < ZFL->ZFL_DTFIM .AND. ZFL->ZFL_ATIVO == "SIM" )
+				
+				cResult  := .T.
+				cCode    := 200
+
+				nStatus  := 1
+				cValida  := "SIM"
+				cDetail  := "Empresa liberada para uso no protheus"
+				cDetailMessage := ""
+
+			Else
+
+				cResult  := .F.
+				cCode    := 401
+
+				nStatus  := 2
+				cValida  := "NAO"
+				cDetail  := "Empresa nao liberada para uso no protheus"
+				cDetailMessage := "Verifique a data de expiração da utilizacao do app ou se empresa esta ativa"
+
+			EndIf
+		Else
+
+			cResult  := .F.
+			cCode    := 404
+
+			nStatus  := 3
+			cValida  := "NAO"
+			cDetail  := "CNPJ não encontrado"
+			cDetailMessage := ""
+
+		EndIf
+
+	Else
+
+		cResult  := .F.
+		cCode    := 422
+
+		nStatus  := 4
+		cValida  := "NAO"
+		cDetail  := "CNPJ nao informado ou invalido"
+		cDetailMessage := ""
+
+	EndIf
+
+	jEmp := JsonObject():New()
+	jEmp[ 'status' ]          := nStatus
+	jEmp[ 'valida' ]          := cValida
+	jEmp[ 'message' ]         := cDetail
+	jEmp[ 'detailedMessage' ] := cDetailMessage
+	aadd(Self:jData[ 'items' ], jEmp)
+
+	Self:jResponse[ 'result' ]   := cResult
+	Self:jResponse[ 'code' ]     := cCode
+	Self:jResponse[ 'response' ] := Self:jData
+
+	oRest:setStatusCode(cCode)
+	oRest:setResponse(Self:jResponse)
+	oRest:setKeyHeaderResponse('Content-Type','application/json')
+
+Return
