@@ -61,7 +61,7 @@ Method viewLibEmpresa() Class libEmpresa
 
 		If Len(cCNPJ) > 14
 			cCnpj := PadR( AllTrim( StrTran( StrTran( StrTran( ::pCnpj , "." , "" ) , "/" , "" ) , "-" , "" ) ) , TamSX3( "ZFL_CNPJ" )[ 1 ] )
-		EndIf
+		EndIf 
 
 		DbSelectArea( "ZFL" )
 		ZFL->( DbSetOrder( 1 ) )
